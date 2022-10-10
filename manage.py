@@ -3,14 +3,7 @@
 import os
 import sys
 
-from Detection.functions import getAllData
-
-# from Detection.functions import getAllData
-
-
-
 def main():
-    # getAllData()
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'face_detect.settings')
     try:

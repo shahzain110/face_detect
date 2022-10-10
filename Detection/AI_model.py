@@ -1,19 +1,22 @@
 from keras.applications.inception_v3 import InceptionV3
 from keras.applications.inception_v3 import preprocess_input
-# from keras_preprocessing.image import load_img
-# from tensorflow.keras.utils import img_to_array
 import numpy as np
 from keras.models import Model
 from numpy import expand_dims
 from scipy import spatial
-from sklearn.metrics import pairwise
+# from sklearn.metrics import pairwise
 from deepface import DeepFace
-from PIL import Image as im
+# from PIL import Image as im
 # from scipy.misc import toimage
-
+from numpy.linalg import norm
+import pickle
+from Detection.functions import dbImagePath, names
 
 global threshold
-threshold = 1.4
+threshold = 0.5
+model = InceptionV3()
+print("MODEL LOADED")      
+model = Model(inputs=model.inputs, outputs=model.layers[1].output)
 
 models = [
   "VGG-Face", 
@@ -36,36 +39,59 @@ backends = [
   'mediapipe'
 ]
 
+def gen_fmPickle():
+  try:
+    print("Generating Pickles Now >>>")
+    pickle_dict = {}
+    for x in range(0,len(names)):
+      img = dbImagePath + f'{x}.jpg'
+      featureMap = getFeatureMap(img)
+      pickle_dict[x] = featureMap
+    # print(pickle_dict)
+    filename = dbImagePath + 'dbImages'
+    outfile = open(filename,'wb')
+    pickle.dump(pickle_dict,outfile)
+    outfile.close()
+  except Exception as e:
+    return f"Error While Generating Pickle : {e}"
+
 # Inception Model
-def getFeatureMap(img1, img2):
-    face1 = DeepFace.detectFace(img_path = img1, 
-        target_size = (299, 299),
-        detector_backend = backends[4])
-
-    face2 = DeepFace.detectFace(img_path = img2, 
-    target_size = (299, 299),
-    detector_backend = backends[4])
-      
-    model = InceptionV3()
-    model = Model(inputs=model.inputs, outputs=model.layers[1].output)
-    # model.summary()
-    # img = load_img(img1, target_size=(299, 299))
-    # img = img_to_array(img)
-    img = expand_dims(face1, axis=0)
-    img = preprocess_input(img)
-    feature_maps_1 = model.predict(img)
-
-    # img = load_img(img2, target_size=(299, 299))
-    # img = img_to_array(img)
-    img = expand_dims(face2, axis=0)
-    img = preprocess_input(img)
-    feature_maps_2 = model.predict(img)
-    # res = np.allclose(feature_maps_1,feature_maps_2)
-    # print(feature_maps_1)
-    # print(feature_maps_2)
-    result = np.linalg.norm(feature_maps_1 - feature_maps_2)
-    # dataSetI = feature_maps_1.ravel()
-    # dataSetII = feature_maps_2.ravel()
-    # result = 1 - spatial.distance.cosine(dataSetI, dataSetII)
-    return result
+def getFeatureMap(image):
+    try:
+      face = DeepFace.detectFace(img_path = image, target_size = (299, 299),detector_backend = backends[4])
+    except Exception as e:
+      return f"NO FACE FOUND : {e}"
     
+    try:
+      img = expand_dims(face, axis=0)
+      img = preprocess_input(img)
+      feature_map = model.predict(img)
+      # print(feature_map.shape)
+    except Exception as e:
+      return f"Error while extracing Feature Maps : {e}"
+    return feature_map
+    
+def RecogAlgo(index,img2Features):
+  filename = dbImagePath + 'dbImages'
+  infile = open(filename,'rb')
+  featureMaps = pickle.load(infile)
+  infile.close()
+
+  # dataSetI = featureMaps[index].ravel()
+  # dataSetII = img2Features.ravel()
+  # result = (1 - spatial.distance.cosine(dataSetI, dataSetII))*0.5
+  
+  result = np.allclose(featureMaps[index],img2Features)
+  
+  # Cosine Similarity
+  # A  = featureMaps[1].reshape(-1, 149, 149)
+  # B = img2Features.reshape(-1, 149, 149)
+  # result = np.dot(A,B)/(norm(A)*norm(B))
+
+
+  print(result)
+  return result
+    
+gen_fmPickle()
+# LT normaliztaion
+# extract every feature bofore
